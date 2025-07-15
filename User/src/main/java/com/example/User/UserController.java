@@ -3,6 +3,9 @@ package com.example.User;
 import com.example.User.external.*;
 import com.example.User.messaging.EmailRequest;
 import com.example.User.messaging.MessageProducer;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
+import io.github.resilience4j.retry.annotation.Retry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -38,6 +41,9 @@ public class UserController {
         return ResponseEntity.ok(userRepo.findAll());
     }
 
+    @RateLimiter(name = "breakerUser", fallbackMethod = "fallBackMethod")
+    @CircuitBreaker(name = "breakerUser", fallbackMethod = "fallBackMethod")
+    @Retry(name = "breakerUser",fallbackMethod = "fallBackMethod")
     // Retrieves a specific user by their ID
     @GetMapping("/{id}")
     public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
@@ -47,6 +53,10 @@ public class UserController {
         List<Comment>comments = commentClient.getCommentsByUserId(id).getBody();
         UserDTO userDTO = new UserDTO(user,posts,comments);
         return ResponseEntity.ok(userDTO);
+    }
+
+    public ResponseEntity<UserDTO> fallBackMethod(@PathVariable Long id, RuntimeException ex) {
+        return ResponseEntity.ok(new UserDTO(new User(),null,null));
     }
 
     // Updates an existing user's information
