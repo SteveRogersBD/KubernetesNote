@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # 📨 RabbitMQ
+  rabbitmq:
+    image: rabbitmq:4-management
+    ports:
+      - "5673:5672"      # AMQP port
+      - "15673:15672"    # Management UI
+
+  # 🐬 MySQL
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: userdb
+      MYSQL_USER: user
+      MYSQL_PASSWORD: 1234
+      MYSQL_ROOT_PASSWORD: 1234
+
+  # 🔍 Zipkin
+  zipkin:
+    image: openzipkin/zipkin
+    ports:
+      - "9412:9411"
+
+  # 💡 Example: User Service
+  user-service:
+    image: aniruddhab1/user-service:v1
+    depends_on:
+      - rabbitmq
+      - mysql
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/userdb
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=1234
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - COMMENT_SERVICE_URL=http://comment-service:8083/comment
+      - POST_SERVICE_URL=http://post-service:8082/post
+
+  # 💡 Example: Post Service
+  post-service:
+    image: aniruddhab1/post-service:v1
+    depends_on:
+      - rabbitmq
+      - mysql
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/userdb
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=1234
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - COMMENT_SERVICE_URL=http://comment-service:8083/comment
+      - USER_SERVICE_URL=http://user-service:8081/user
+
+  comment-service:
+    image: aniruddhab1/comment-service:v1
+    depends_on:
+      - rabbitmq
+      - mysql
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/userdb
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=1234
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - USER_SERVICE_URL=http://user-service:8081/user
+      - POST_SERVICE_URL=http://post-service:8082/post/
+
+  # 💌 Email Service
+  email-service:
+    image: aniruddhab1/email-service:v1
+    depends_on:
+      - rabbitmq
+    ports:
+      - "8084:8084"
+volumes:
+  mysql-data:
